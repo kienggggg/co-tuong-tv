@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Cờ Tướng TV - Xiangqi Smart TV</title>
+    <meta name="description" content="Ứng dụng cờ tướng chuẩn TV thông minh, hỗ trợ điều khiển song song bằng Remote TV và Chuột." />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#d97706" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Google Fonts for High-Fidelity Vietnamese Diacritics & TV Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Noto+Serif+SC:wght@700;900&display=swap" />
+
+    <link rel="stylesheet" href="/src/style.css" />
+
+    <script>
+      // Telemetry reporter to PC host via XHR (guaranteed delivery)
+      window.tvLog = function(msg) {
+        try {
+          var cleanMsg = String(msg).replace(/[\r\n\t]+/g, ' ').substring(0, 300);
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', '/api/log?msg=' + encodeURIComponent(cleanMsg) + '&t=' + Date.now(), true);
+          xhr.send();
+        } catch(e) {
+          try {
+            var img = new Image();
+            img.src = '/api/log?msg=' + encodeURIComponent(cleanMsg) + '&t=' + Date.now();
+          } catch(e2) {}
+        }
+      };
+
+      // Polyfill String.prototype.padStart & padEnd for older Smart TVs (Samsung Tizen WebKit)
+      if (!String.prototype.padStart) {
+        String.prototype.padStart = function(targetLength, padString) {
+          targetLength = targetLength >> 0;
+          padString = String(typeof padString !== 'undefined' ? padString : ' ');
+          if (this.length >= targetLength) return String(this);
+          targetLength = targetLength - this.length;
+          if (targetLength > padString.length) {
+            padString += padString.repeat(targetLength / padString.length);
+          }
+          return padString.slice(0, targetLength) + String(this);
+        };
+      }
+      if (!String.prototype.padEnd) {
+        String.prototype.padEnd = function(targetLength, padString) {
+          targetLength = targetLength >> 0;
+          padString = String(typeof padString !== 'undefined' ? padString : ' ');
+          if (this.length >= targetLength) return String(this);
+          targetLength = targetLength - this.length;
+          if (targetLength > padString.length) {
+            padString += padString.repeat(targetLength / padString.length);
+          }
+          return String(this) + padString.slice(0, targetLength);
+        };
+      }
+
+      // Polyfill SVGElement.prototype.innerHTML for older Smart TVs (Samsung Tizen / WebKit)
+      try {
+        if (typeof SVGElement !== 'undefined') {
+          var testEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          var works = false;
+          try {
+            testEl.innerHTML = '<circle cx="0" cy="0" r="1"/>';
+            if (testEl.firstChild && testEl.firstChild.nodeName.toLowerCase() === 'circle') works = true;
+          } catch(e) {}
+
+          if (!works) {
+            Object.defineProperty(SVGElement.prototype, 'innerHTML', {
+              get: function() {
+                var s = new XMLSerializer();
+                var res = '';
+                for (var i = 0; i < this.childNodes.length; i++) {
+                  res += s.serializeToString(this.childNodes[i]);
+                }
+                return res;
+              },
+              set: function(val) {
+                while (this.firstChild) this.removeChild(this.firstChild);
+                if (!val) return;
+                try {
+                  var temp = document.createElement('div');
+                  temp.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg">' + val + '</svg>';
+                  var svgRoot = temp.firstChild;
+                  while (svgRoot && svgRoot.firstChild) {
+                    this.appendChild(svgRoot.firstChild);
+                  }
+                } catch(err) {}
+              },
+              configurable: true
+            });
+            window.tvLog('SVGElement.innerHTML polyfilled for TV');
+          }
+        }
+      } catch(e) {
+        window.tvLog('SVG polyfill err: ' + e);
+      }
+
+      window.tvLog('HTML head evaluated');
+
+      // Global TV error catcher
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        window.tvLog('JS_ERROR: ' + msg + ' (' + url + ':' + lineNo + ')');
+        var errBox = document.getElementById('tv-debug-box');
+        if (!errBox) {
+          errBox = document.createElement('div');
+          errBox.id = 'tv-debug-box';
+          errBox.style = 'position:fixed;top:10px;left:10px;right:10px;background:rgba(180,0,0,0.95);color:#fff;padding:16px;border-radius:12px;font-size:18px;z-index:999999;font-family:sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.9);';
+          document.body ? document.body.appendChild(errBox) : document.documentElement.appendChild(errBox);
+        }
+        errBox.innerHTML = '<strong style="color:#fef08a;">Lỗi hiển thị trên TV:</strong><br/>' + msg + '<br/><small>' + url + ' dòng: ' + lineNo + '</small>';
+        return false;
+      };
+
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason ? (event.reason.stack || event.reason.message || event.reason) : 'Unknown';
+        window.tvLog('PROMISE_ERROR: ' + reason);
+        window.onerror('Lỗi Promise: ' + reason, '', 0);
+      });
+    </script>
+  </head>
+  <body>
+    <div class="tv-app-layout" id="app">
+      <!-- TV Home Screen Root (Overlay) -->
+      <div class="home-screen-root" id="home-screen-container">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;font-family:'Be Vietnam Pro',sans-serif;color:#fbbf24;text-align:center;">
+          <div style="font-size:52px;">♟️</div>
+          <h1 style="font-size:36px;letter-spacing:3px;margin:0;color:#fef08a;">CỜ TƯỚNG TV</h1>
+          <p style="color:#94a3b8;font-size:18px;margin:0;">Đang tải dữ liệu trò chơi...</p>
+        </div>
+      </div>
+
+      <!-- Main Content Area: Board + TV Sidebar -->
+      <main class="tv-main-stage" id="main-stage">
+        <!-- Board Container -->
+        <section class="board-section" id="board-container">
+          <!-- Dynamically populated by BoardView -->
+        </section>
+
+        <!-- TV Sidebar Control Panel -->
+        <aside class="sidebar-section" id="sidebar-container">
+          <!-- Dynamically populated by TVMenuController -->
+        </aside>
+      </main>
+
+      <!-- TV Remote Quick Legend Bar -->
+      <footer class="tv-bottom-bar-wrapper" id="bottom-bar-container">
+        <!-- Dynamically populated by TVMenuController -->
+      </footer>
+
+      <!-- TV Modals (GameOver, Settings, Alert) -->
+      <div class="modal-root" id="modal-container" style="display: none;"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('./sw.js').catch(function() {});
+        });
+      }
+    </script>
+  </body>
+</html>
