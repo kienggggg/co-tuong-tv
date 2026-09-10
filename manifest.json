@@ -1,0 +1,17 @@
+{
+  "name": "Cờ Tướng TV - Xiangqi Smart TV",
+  "short_name": "Cờ Tướng TV",
+  "description": "Ứng dụng cờ tướng chuẩn TV thông minh, hỗ trợ điều khiển song song bằng Remote TV và Chuột.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#07090e",
+  "theme_color": "#d97706",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
