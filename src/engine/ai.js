@@ -11,6 +11,13 @@
 import { SIDES, INITIAL_FEN } from './xiangqi.js';
 import { OPENINGS, BLACK_RESPONSES_TO_TRUNG_PHAO } from './openings.js';
 
+class SearchTimeoutException extends Error {
+  constructor() {
+    super('Search timeout');
+    this.name = 'SearchTimeoutException';
+  }
+}
+
 const PIECE_VALUES = {
   'k': 10000,
   'r': 900,
@@ -197,22 +204,28 @@ export class XiangqiAI {
   }
 
   /**
-   * Quiescence Search: Evaluates tactical capture chains to avoid Horizon Effect
+   * Quiescence Search: Evaluates tactical capture chains to avoid Horizon Effect.
+   * Fast, throttled, and respects time budget.
    */
-  quiescence(game, alpha, beta, isMaximizing, qDepth = 3) {
-    const standPat = this.evaluate(game);
+  quiescence(game, alpha, beta, isMaximizing, qDepth = 2) {
+    this.nodeCount++;
+    if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
+      throw new SearchTimeoutException();
+    }
 
-    if (qDepth === 0) return standPat;
+    const standPat = this.evaluate(game);
+    if (qDepth <= 0) return standPat;
 
     if (isMaximizing) {
       if (standPat >= beta) return beta;
       if (standPat > alpha) alpha = standPat;
 
-      // Only search capturing moves
       const moves = game.getLegalMoves(SIDES.RED).filter(m => m.captured);
+      if (moves.length === 0) return standPat;
       moves.sort((a, b) => this.scoreMove(b) - this.scoreMove(a));
 
-      for (const move of moves) {
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
         game.makeMoveInternal(move);
         const score = this.quiescence(game, alpha, beta, false, qDepth - 1);
         game.undoMoveInternal(move);
@@ -226,9 +239,11 @@ export class XiangqiAI {
       if (standPat < beta) beta = standPat;
 
       const moves = game.getLegalMoves(SIDES.BLACK).filter(m => m.captured);
+      if (moves.length === 0) return standPat;
       moves.sort((a, b) => this.scoreMove(b) - this.scoreMove(a));
 
-      for (const move of moves) {
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
         game.makeMoveInternal(move);
         const score = this.quiescence(game, alpha, beta, true, qDepth - 1);
         game.undoMoveInternal(move);
@@ -241,61 +256,129 @@ export class XiangqiAI {
   }
 
   /**
-   * Minimax with Alpha-Beta Pruning and Quiescence Search
+   * Minimax with Alpha-Beta Pruning.
+   * Returns primitive number (score) to eliminate object allocation in recursion.
    */
   alphaBeta(game, depth, alpha, beta, isMaximizing) {
-    if (depth === 0 || game.isGameOver) {
-      return { score: this.quiescence(game, alpha, beta, isMaximizing), move: null };
+    this.nodeCount++;
+    if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
+      throw new SearchTimeoutException();
+    }
+
+    if (depth <= 0 || game.isGameOver) {
+      const qDepth = (this.difficulty === 'easy') ? 1 : 2;
+      return this.quiescence(game, alpha, beta, isMaximizing, qDepth);
     }
 
     const currentSide = isMaximizing ? SIDES.RED : SIDES.BLACK;
-    let moves = game.getLegalMoves(currentSide);
+    const moves = game.getLegalMoves(currentSide);
 
     if (moves.length === 0) {
-      const isCheck = game.isCheck(currentSide);
-      const score = isMaximizing ? (-25000 - depth) : (25000 + depth);
-      return { score, move: null };
+      const inCheck = game.isCheck(currentSide);
+      return isMaximizing ? (-25000 - depth) : (25000 + depth);
     }
 
     moves.sort((a, b) => this.scoreMove(b) - this.scoreMove(a));
 
-    let bestMove = null;
+    if (isMaximizing) {
+      let maxScore = -Infinity;
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
+        game.makeMoveInternal(move);
+        const score = this.alphaBeta(game, depth - 1, alpha, beta, false);
+        game.undoMoveInternal(move);
+
+        if (score > maxScore) maxScore = score;
+        if (maxScore > alpha) alpha = maxScore;
+        if (beta <= alpha) break; // Beta cutoff
+      }
+      return maxScore;
+    } else {
+      let minScore = Infinity;
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
+        game.makeMoveInternal(move);
+        const score = this.alphaBeta(game, depth - 1, alpha, beta, true);
+        game.undoMoveInternal(move);
+
+        if (score < minScore) minScore = score;
+        if (minScore < beta) beta = minScore;
+        if (beta <= alpha) break; // Alpha cutoff
+      }
+      return minScore;
+    }
+  }
+
+  /**
+   * Root level search of Iterative Deepening.
+   * Tracks best move and prioritizes searching previous iteration's best move.
+   */
+  rootSearch(game, depth, isMaximizing, previousBestMove) {
+    const currentSide = isMaximizing ? SIDES.RED : SIDES.BLACK;
+    const moves = game.getLegalMoves(currentSide);
+    if (moves.length === 0) return { score: 0, move: null };
+
+    // Move ordering: put previous best move first to trigger early beta-cutoffs
+    moves.sort((a, b) => {
+      const aIsBest = previousBestMove && a.from.r === previousBestMove.from.r && a.from.c === previousBestMove.from.c && a.to.r === previousBestMove.to.r && a.to.c === previousBestMove.to.c;
+      const bIsBest = previousBestMove && b.from.r === previousBestMove.from.r && b.from.c === previousBestMove.from.c && b.to.r === previousBestMove.to.r && b.to.c === previousBestMove.to.c;
+      if (aIsBest) return -1;
+      if (bIsBest) return 1;
+      return this.scoreMove(b) - this.scoreMove(a);
+    });
+
+    let bestMove = moves[0];
+    let alpha = -Infinity;
+    let beta = Infinity;
 
     if (isMaximizing) {
       let maxScore = -Infinity;
-      for (const move of moves) {
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
+        this.nodeCount++;
+        if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
+          throw new SearchTimeoutException();
+        }
+
         game.makeMoveInternal(move);
-        const result = this.alphaBeta(game, depth - 1, alpha, beta, false);
+        const score = this.alphaBeta(game, depth - 1, alpha, beta, false);
         game.undoMoveInternal(move);
 
-        if (result.score > maxScore) {
-          maxScore = result.score;
+        if (score > maxScore) {
+          maxScore = score;
           bestMove = move;
         }
-        alpha = Math.max(alpha, maxScore);
-        if (beta <= alpha) break; // Beta cutoff
+        if (maxScore > alpha) alpha = maxScore;
+        if (beta <= alpha) break;
       }
       return { score: maxScore, move: bestMove };
     } else {
       let minScore = Infinity;
-      for (const move of moves) {
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
+        this.nodeCount++;
+        if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
+          throw new SearchTimeoutException();
+        }
+
         game.makeMoveInternal(move);
-        const result = this.alphaBeta(game, depth - 1, alpha, beta, true);
+        const score = this.alphaBeta(game, depth - 1, alpha, beta, true);
         game.undoMoveInternal(move);
 
-        if (result.score < minScore) {
-          minScore = result.score;
+        if (score < minScore) {
+          minScore = score;
           bestMove = move;
         }
-        beta = Math.min(beta, minScore);
-        if (beta <= alpha) break; // Alpha cutoff
+        if (minScore < beta) beta = minScore;
+        if (beta <= alpha) break;
       }
       return { score: minScore, move: bestMove };
     }
   }
 
   /**
-   * Find the best move for current player with opening book & difficulty tuning
+   * Find the best move using Iterative Deepening with strict Time Budget.
+   * Guarantees fast response (< 2.5s - 3s max on Smart TV) and 0% freeze.
    */
   async getBestMove(game) {
     const currentSide = game.turn;
@@ -304,32 +387,68 @@ export class XiangqiAI {
 
     if (legalMoves.length === 0) return null;
 
-    // Check opening book first for fast, grandmaster opening
+    // 1. Check opening book first for instant GM opening move
     const bookMove = this.getOpeningMove(game);
     if (bookMove) {
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => setTimeout(resolve, 200));
       return bookMove;
     }
 
-    // Thinking delay to give natural cadence
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // 2. Configure time budget per move (in milliseconds)
+    const timeBudgets = {
+      easy: 600,     // Max 0.6s
+      medium: 1600,  // Max 1.6s
+      hard: 2400,    // Max 2.4s
+      master: 3000   // Max 3.0s (never exceeds 3 seconds!)
+    };
+    const maxTime = timeBudgets[this.difficulty] || 1800;
+    this.deadline = performance.now() + maxTime;
+    this.nodeCount = 0;
 
-    let searchDepth = 3;
-    if (this.difficulty === 'easy') searchDepth = 1;
-    else if (this.difficulty === 'medium') searchDepth = 3;
-    else if (this.difficulty === 'hard') searchDepth = 4;
-    else if (this.difficulty === 'master') searchDepth = 4;
+    const targetDepths = {
+      easy: 1,
+      medium: 3,
+      hard: 4,
+      master: 5
+    };
+    const maxDepth = targetDepths[this.difficulty] || 3;
 
+    // Easy level: intentional blunder chance for beginners
     if (this.difficulty === 'easy') {
-      // 30% chance of random decent move for beginner level
-      if (Math.random() < 0.3) {
+      if (Math.random() < 0.25) {
+        await new Promise(resolve => setTimeout(resolve, 200));
         return legalMoves[Math.floor(Math.random() * legalMoves.length)];
       }
-      const { move } = this.alphaBeta(game, 1, -Infinity, Infinity, isMaximizing);
-      return move || legalMoves[0];
     }
 
-    const { move } = this.alphaBeta(game, searchDepth, -Infinity, Infinity, isMaximizing);
-    return move || legalMoves[0];
+    let bestMove = legalMoves[0];
+    let bestScore = isMaximizing ? -Infinity : Infinity;
+
+    // 3. Iterative Deepening loop (depth 1 -> 2 -> 3 -> 4)
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      if (performance.now() >= this.deadline) break;
+
+      try {
+        // Yield execution to browser event loop so TV UI and remote stay responsive
+        await new Promise(r => setTimeout(r, 4));
+
+        const result = this.rootSearch(game, depth, isMaximizing, bestMove);
+        if (result && result.move) {
+          bestMove = result.move;
+          bestScore = result.score;
+        }
+
+        // Checkmate detected -> no need to search deeper
+        if (Math.abs(bestScore) > 20000) break;
+      } catch (err) {
+        if (err instanceof SearchTimeoutException) {
+          // Time is up! Use bestMove from the last fully completed depth
+          break;
+        }
+        throw err;
+      }
+    }
+
+    return bestMove;
   }
 }
