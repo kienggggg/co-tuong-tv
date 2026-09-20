@@ -72,6 +72,10 @@ class SoundEffects {
    */
   playNavigate() {
     if (this.isMuted) return;
+    const nowMs = performance.now();
+    if (this._lastNavTime && nowMs - this._lastNavTime < 50) return;
+    this._lastNavTime = nowMs;
+
     this.init();
     if (!this.ctx) return;
 

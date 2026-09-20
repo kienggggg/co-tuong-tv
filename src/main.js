@@ -275,21 +275,25 @@ class XiangqiTVApp {
    */
   async triggerAiTurn() {
     this.isAiThinking = true;
+    this.ai.cancelled = false;
     this.menuController.updateStatus(this.game, true);
 
     try {
-      // 1. AI tính toán nước cờ
+      // 1. AI tính toán nước cờ (đáp ứng nhanh trong vòng 0.6s - 1.8s)
       const bestMove = await this.ai.getBestMove(this.game);
+      if (this.ai.cancelled) return;
+
       if (bestMove && !this.game.isGameOver) {
         // 2. Highlight quân cờ Bot chuẩn bị đi trong 120ms
         this.boardView.selectedSquare = { r: bestMove.from.r, c: bestMove.from.c };
         this.boardView.renderHighlights();
         await new Promise(r => setTimeout(r, 120));
+        if (this.ai.cancelled) return;
 
         const movingPiece = this.game.getPiece(bestMove.from.r, bestMove.from.c);
         const isCapture = Boolean(bestMove.captured);
 
-        // 5. Cánh tay Bot vươn từ trên xuống, nhấc quân cờ và lướt sang ô đích
+        // 3. Bot nhấc quân cờ và di chuyển
         await new Promise(resolve => {
           this.boardView.animateMove({
             from: bestMove.from,
@@ -299,6 +303,10 @@ class XiangqiTVApp {
             isCapture,
             capturedPiece: bestMove.captured,
             onComplete: () => {
+              if (this.ai.cancelled) {
+                resolve();
+                return;
+              }
               this.game.makeMove(bestMove);
               this.boardView.selectedSquare = null;
 
@@ -350,6 +358,7 @@ class XiangqiTVApp {
   }
 
   handleBack() {
+    // 1. Đang chọn quân cờ: Hủy chọn ngay lập tức
     if (this.selectedSquare) {
       this.selectedSquare = null;
       this.legalMoves = [];
@@ -359,7 +368,19 @@ class XiangqiTVApp {
       return;
     }
 
-    // Jump focus to TV sidebar
+    // 2. Nếu đang ở thanh menu bên phải: Quay lại bàn cờ
+    if (this.inputController.area === 'sidebar') {
+      this.inputController.setArea('board');
+      return;
+    }
+
+    // 3. Nếu vừa bấm nhầm đi quân (hoặc trong ván đã có nước đi): Bấm BACK LÀ HOÃN CỜ (UNDO) NGAY!
+    if (this.isAiThinking || this.game.history.length > 0) {
+      this.undoMove();
+      return;
+    }
+
+    // 4. Nếu chưa đi nước nào: Chuyển sang menu sidebar
     this.inputController.setArea('sidebar');
   }
 
@@ -384,13 +405,25 @@ class XiangqiTVApp {
   }
 
   undoMove() {
-    if (this.isAiThinking) return;
+    // Nếu AI đang suy nghĩ khi người chơi lỡ bấm nhầm: Hủy ngay lập tức!
+    if (this.isAiThinking) {
+      this.ai.cancelled = true;
+      this.isAiThinking = false;
+      this.game.undo(); // Hủy nước người chơi vừa lỡ bấm nhầm
+      this.selectedSquare = null;
+      this.legalMoves = [];
+      this.hintMove = null;
+      sound.playSelect();
+      this.render();
+      this.menuController.showToast('↩️ Đã hủy nước đi nhầm (Đi lại)');
+      return;
+    }
 
     if (this.gameMode === 'vs-ai') {
       if (this.game.history.length >= 2) {
         this.game.undo();
         this.game.undo();
-      } else if (this.game.history.length === 1 && this.playerSide === SIDES.BLACK) {
+      } else if (this.game.history.length === 1) {
         this.game.undo();
       } else {
         sound.playError();
@@ -408,6 +441,7 @@ class XiangqiTVApp {
     this.hintMove = null;
     sound.playSelect();
     this.render();
+    this.menuController.showToast('↩️ Đã đi lại nước cờ (Undo)');
   }
 
   async requestHint() {

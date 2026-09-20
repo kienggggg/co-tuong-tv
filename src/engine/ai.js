@@ -18,6 +18,13 @@ class SearchTimeoutException extends Error {
   }
 }
 
+class SearchCancelledException extends Error {
+  constructor() {
+    super('Search cancelled');
+    this.name = 'SearchCancelledException';
+  }
+}
+
 const PIECE_VALUES = {
   'k': 10000,
   'r': 900,
@@ -85,6 +92,7 @@ const CHARIOT_PST = [
 export class XiangqiAI {
   constructor(difficulty = 'medium') {
     this.difficulty = difficulty; // 'easy' | 'medium' | 'hard' | 'master'
+    this.cancelled = false;
   }
 
   setDifficulty(level) {
@@ -209,8 +217,9 @@ export class XiangqiAI {
    */
   quiescence(game, alpha, beta, isMaximizing, qDepth = 2) {
     this.nodeCount++;
-    if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
-      throw new SearchTimeoutException();
+    if ((this.nodeCount & 63) === 0) {
+      if (this.cancelled) throw new SearchCancelledException();
+      if (performance.now() >= this.deadline) throw new SearchTimeoutException();
     }
 
     const standPat = this.evaluate(game);
@@ -261,8 +270,9 @@ export class XiangqiAI {
    */
   alphaBeta(game, depth, alpha, beta, isMaximizing) {
     this.nodeCount++;
-    if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
-      throw new SearchTimeoutException();
+    if ((this.nodeCount & 63) === 0) {
+      if (this.cancelled) throw new SearchCancelledException();
+      if (performance.now() >= this.deadline) throw new SearchTimeoutException();
     }
 
     if (depth <= 0 || game.isGameOver) {
@@ -336,8 +346,9 @@ export class XiangqiAI {
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
         this.nodeCount++;
-        if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
-          throw new SearchTimeoutException();
+        if ((this.nodeCount & 63) === 0) {
+          if (this.cancelled) throw new SearchCancelledException();
+          if (performance.now() >= this.deadline) throw new SearchTimeoutException();
         }
 
         game.makeMoveInternal(move);
@@ -357,8 +368,9 @@ export class XiangqiAI {
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
         this.nodeCount++;
-        if ((this.nodeCount & 63) === 0 && performance.now() >= this.deadline) {
-          throw new SearchTimeoutException();
+        if ((this.nodeCount & 63) === 0) {
+          if (this.cancelled) throw new SearchCancelledException();
+          if (performance.now() >= this.deadline) throw new SearchTimeoutException();
         }
 
         game.makeMoveInternal(move);
@@ -426,13 +438,15 @@ export class XiangqiAI {
 
     // 3. Iterative Deepening loop (depth 1 -> 2 -> 3 -> 4)
     for (let depth = 1; depth <= maxDepth; depth++) {
-      if (performance.now() >= this.deadline) break;
+      if (this.cancelled || performance.now() >= this.deadline) break;
 
       try {
         // Yield execution to browser event loop so TV UI and remote stay responsive
         await new Promise(r => setTimeout(r, 4));
+        if (this.cancelled) return null;
 
         const result = this.rootSearch(game, depth, isMaximizing, bestMove);
+        if (this.cancelled) return null;
         if (result && result.move) {
           bestMove = result.move;
           bestScore = result.score;
@@ -441,6 +455,9 @@ export class XiangqiAI {
         // Checkmate detected -> no need to search deeper
         if (Math.abs(bestScore) > 20000) break;
       } catch (err) {
+        if (err instanceof SearchCancelledException) {
+          return null;
+        }
         if (err instanceof SearchTimeoutException) {
           // Time is up! Use bestMove from the last fully completed depth
           break;

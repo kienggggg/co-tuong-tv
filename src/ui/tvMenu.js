@@ -593,4 +593,20 @@ export class TVMenuController {
     if (!this.modalContainer || this.modalContainer.style.display === 'none') return [];
     return Array.from(this.modalContainer.querySelectorAll('.tv-btn'));
   }
+
+  showToast(msg) {
+    let toast = document.getElementById('tv-toast-popup');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'tv-toast-popup';
+      toast.className = 'tv-toast-popup';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 1800);
+  }
 }

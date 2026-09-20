@@ -403,12 +403,19 @@ export class BoardView {
   setupMouseEvents() {
     if (!this.canvasContainer) return;
 
+    let lastHoverR = -1;
+    let lastHoverC = -1;
+
     this.canvasContainer.addEventListener('mousemove', (e) => {
       const cell = this.getBoardCellFromEvent(e);
       if (cell) {
-        this.onCellHover(cell.r, cell.c);
+        if (cell.r !== lastHoverR || cell.c !== lastHoverC) {
+          lastHoverR = cell.r;
+          lastHoverC = cell.c;
+          this.onCellHover(cell.r, cell.c);
+        }
       }
-    });
+    }, { passive: true });
 
     this.canvasContainer.addEventListener('click', (e) => {
       if (this.isAnimating) return;
