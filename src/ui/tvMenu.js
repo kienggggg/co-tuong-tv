@@ -106,7 +106,7 @@ export class TVMenuController {
           <button class="tv-btn" data-action="toggle-labels" id="btn-toggle-labels">
             <span class="btn-color-tag blue">4</span>
             <span class="btn-icon">🏷️</span>
-            <span class="btn-text" id="text-labels">Chữ Quốc ngữ: Bật</span>
+            <span class="btn-text" id="text-labels">Mặt cờ: Chữ Hán</span>
           </button>
 
           <button class="tv-btn" data-action="open-settings" id="btn-open-settings">

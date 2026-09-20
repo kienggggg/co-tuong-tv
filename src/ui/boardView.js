@@ -56,7 +56,7 @@ export function setSvgHTML(el, markup) {
 export class BoardView {
   constructor(containerElement, options = {}) {
     this.container = containerElement;
-    this.showVietnameseLabels = options.showVietnameseLabels ?? true;
+    this.showVietnameseLabels = options.showVietnameseLabels ?? false;
     this.onCellClick = options.onCellClick || (() => {});
     this.onCellHover = options.onCellHover || (() => {});
 
@@ -636,52 +636,70 @@ export class BoardView {
         const woodGrad = isRed ? "url(#redPieceWood)" : "url(#blackPieceWood)";
         const rimColor = isRed ? "#78350f" : "#09090b";
         const innerBorder = isRed ? "#b91c1c" : "#ca8a04";
-        const charColor = isRed ? "#991b1b" : "#fef08a";
-        const labelColor = isRed ? "#7f1d1d" : "#fbbf24";
+        const charColor = isRed ? "#b91c1c" : "#fef08a";
+        const labelColor = isRed ? "#991b1b" : "#fef08a";
 
-        // 3D Piece Elevation & Shadow when selected
-        const transformScale = isSelected ? 'translate(0, -10) scale(1.24)' : (isTargeted ? 'scale(1.05)' : 'scale(1)');
+        // 100% UNIFORM PIECE SIZE: Tất cả quân cờ có kích thước đường kính đồng nhất tuyệt đối!
+        // Khi được chọn, chỉ nâng nhẹ 4px theo trục Y (translate), tuyệt đối không scale to nhỏ!
+        const py = isSelected ? y - 4 : y;
+        const shadowCy = isSelected ? 6 : 2.5;
+        const shadowOpacity = isSelected ? 0.45 : 0.28;
+
+        let faceContent = '';
+        if (!this.showVietnameseLabels) {
+          // CHỮ HÁN TRUYỀN THỐNG TO RÕ 46px NÉT ĐẬM CHUẨN BÀN CỜ GỖ
+          faceContent = `
+            <text x="0" y="1"
+                  text-anchor="middle"
+                  dominant-baseline="central"
+                  alignment-baseline="central"
+                  font-family="'Noto Serif SC', 'KaiTi', 'STKaiti', 'Songti SC', 'SimSun', 'Microsoft YaHei', serif"
+                  font-size="46"
+                  font-weight="900"
+                  fill="${charColor}"
+                  style="text-shadow: 1px 1px 2px rgba(0,0,0,0.65);">
+              ${info.hanzi}
+            </text>
+          `;
+        } else {
+          // CHỮ QUỐC NGỮ DUY NHẤT TO RÕ NÉT ĐẬM (KHÔNG CHÈN CHỮ HÁN)
+          const vnText = info.name.toUpperCase();
+          const vnFontSize = vnText.length <= 2 ? 28 : (vnText.length <= 4 ? 22 : 19);
+          faceContent = `
+            <text x="0" y="1"
+                  text-anchor="middle"
+                  dominant-baseline="central"
+                  alignment-baseline="central"
+                  font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif"
+                  font-size="${vnFontSize}"
+                  font-weight="900"
+                  fill="${labelColor}"
+                  letter-spacing="0.5"
+                  style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+              ${vnText}
+            </text>
+          `;
+        }
 
         svg += `
           <g class="svg-piece-group ${isRed ? 'red' : 'black'} ${isSelected ? 'selected' : ''}"
-             transform="translate(${x}, ${y}) ${transformScale}"
-             style="cursor: pointer; transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);">
+             transform="translate(${x}, ${py})"
+             style="cursor: pointer; transition: transform 0.2s ease-out;">
 
             <!-- 0. Zero-Overhead Hardware-Accelerated Vector Shadow -->
-            <circle cx="0" cy="${isSelected ? 8 : 3}" r="${this.pieceRadius}" fill="#000000" opacity="${isSelected ? 0.45 : 0.28}" />
+            <circle cx="0" cy="${shadowCy}" r="${this.pieceRadius}" fill="#000000" opacity="${shadowOpacity}" />
 
-            <!-- 1. Turned Solid Wood Disc (Thân cờ gỗ tiện tròn vát mép) -->
+            <!-- 1. Turned Solid Wood Disc (Thân cờ gỗ tiện tròn vát mép chuẩn xác) -->
             <circle cx="0" cy="0" r="${this.pieceRadius}" fill="${woodGrad}" stroke="${rimColor}" stroke-width="2.2" />
 
             <!-- 2. Lathe-turned Chamfer Highlight Ring (Viền vát 3D bóng) -->
             <circle cx="0" cy="0" r="${this.pieceRadius - 3.5}" fill="none" stroke="${isRed ? '#fef08a' : '#52525b'}" stroke-width="0.8" opacity="0.6" />
 
-            <!-- 3. Recessed Circular Well (Lòng cờ khoét chìm tinh tế) -->
-            <circle cx="0" cy="0" r="${this.pieceRadius - 6}" fill="${isRed ? 'rgba(254, 243, 199, 0.25)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
+            <!-- 3. Recessed Circular Well (Lòng cờ khoét chìm tinh xảo) -->
+            <circle cx="0" cy="0" r="${this.pieceRadius - 6}" fill="${isRed ? 'rgba(254, 243, 199, 0.3)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
 
-            <!-- 4. Deep Intaglio Carved Chinese Character (Khắc chìm sơn son/thếp vàng to nét chuẩn TV 3m) -->
-            <text x="0" y="${this.showVietnameseLabels ? -2 : 10}"
-                  text-anchor="middle"
-                  font-family="'Noto Serif SC', 'Songti SC', 'SimSun', serif"
-                  font-size="34"
-                  font-weight="900"
-                  fill="${charColor}"
-                  style="text-shadow: 1px 1px 2px rgba(0,0,0,0.7);">
-              ${info.hanzi}
-            </text>
-
-            <!-- 5. Refined Micro Vietnamese Label (Nhãn Quốc ngữ in đậm sắc nét chuẩn TV 3m) -->
-            ${this.showVietnameseLabels ? `
-              <text x="0" y="22"
-                    text-anchor="middle"
-                    font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif"
-                    font-size="12.5"
-                    font-weight="900"
-                    fill="${labelColor}"
-                    letter-spacing="0.8">
-                ${info.name.toUpperCase()}
-              </text>
-            ` : ''}
+            <!-- 4. Face Typography (Mặt cờ to rõ, tương phản cao, siêu nét từ 3 mét) -->
+            ${faceContent}
           </g>
         `;
       }
@@ -702,37 +720,53 @@ export class BoardView {
     const woodGrad = isRed ? "url(#redPieceWood)" : "url(#blackPieceWood)";
     const rimColor = isRed ? "#78350f" : "#09090b";
     const innerBorder = isRed ? "#b91c1c" : "#ca8a04";
-    const charColor = isRed ? "#991b1b" : "#fef08a";
-    const labelColor = isRed ? "#7f1d1d" : "#fbbf24";
+    const charColor = isRed ? "#b91c1c" : "#fef08a";
+    const labelColor = isRed ? "#991b1b" : "#fef08a";
+
+    let faceContent = '';
+    if (!this.showVietnameseLabels) {
+      faceContent = `
+        <text x="0" y="1"
+              text-anchor="middle"
+              dominant-baseline="central"
+              alignment-baseline="central"
+              font-family="'Noto Serif SC', 'KaiTi', 'STKaiti', 'Songti SC', 'SimSun', 'Microsoft YaHei', serif"
+              font-size="46"
+              font-weight="900"
+              fill="${charColor}"
+              style="text-shadow: 1px 1px 2px rgba(0,0,0,0.65);">
+          ${info.hanzi}
+        </text>
+      `;
+    } else {
+      const vnText = info.name.toUpperCase();
+      const vnFontSize = vnText.length <= 2 ? 28 : (vnText.length <= 4 ? 22 : 19);
+      faceContent = `
+        <text x="0" y="1"
+              text-anchor="middle"
+              dominant-baseline="central"
+              alignment-baseline="central"
+              font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif"
+              font-size="${vnFontSize}"
+              font-weight="900"
+              fill="${labelColor}"
+              letter-spacing="0.5"
+              style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+          ${vnText}
+        </text>
+      `;
+    }
 
     return `
       <g class="svg-piece-group ${isRed ? 'red' : 'black'}"
          transform="translate(${x}, ${y}) scale(${scale})"
          style="cursor: pointer;">
         <!-- Vector shadow -->
-        <circle cx="0" cy="${isLifted ? 8 : 3}" r="${this.pieceRadius}" fill="#000000" opacity="${isLifted ? 0.45 : 0.28}" />
+        <circle cx="0" cy="${isLifted ? 6 : 2.5}" r="${this.pieceRadius}" fill="#000000" opacity="${isLifted ? 0.45 : 0.28}" />
         <circle cx="0" cy="0" r="${this.pieceRadius}" fill="${woodGrad}" stroke="${rimColor}" stroke-width="2.2" />
         <circle cx="0" cy="0" r="${this.pieceRadius - 3.5}" fill="none" stroke="${isRed ? '#fef08a' : '#52525b'}" stroke-width="0.8" opacity="0.6" />
-        <circle cx="0" cy="0" r="${this.pieceRadius - 6}" fill="${isRed ? 'rgba(254, 243, 199, 0.25)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
-        <text x="0" y="${this.showVietnameseLabels ? -2 : 10}"
-              text-anchor="middle"
-              font-family="'Noto Serif SC', 'Songti SC', 'SimSun', serif"
-              font-size="34"
-              font-weight="900"
-              fill="${charColor}">
-          ${info.hanzi}
-        </text>
-        ${this.showVietnameseLabels ? `
-          <text x="0" y="22"
-                text-anchor="middle"
-                font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif"
-                font-size="12.5"
-                font-weight="900"
-                fill="${labelColor}"
-                letter-spacing="0.8">
-            ${info.name.toUpperCase()}
-          </text>
-        ` : ''}
+        <circle cx="0" cy="0" r="${this.pieceRadius - 6}" fill="${isRed ? 'rgba(254, 243, 199, 0.3)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
+        ${faceContent}
       </g>
     `;
   }

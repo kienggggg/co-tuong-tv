@@ -25,7 +25,7 @@ class XiangqiTVApp {
     this.gameMode = 'vs-ai'; // 'vs-ai' | '2-player'
     this.playerSide = SIDES.RED;
     this.difficulty = 'medium'; // 'easy' | 'medium' | 'hard' | 'master'
-    this.showLabels = true;
+    this.showLabels = false; // Mặc định: Chữ Hán to rõ, chuẩn bàn cờ gỗ phòng khách
 
     // Time Control Clock State (Giây, 0 = không giới hạn)
     this.timeLimit = 600; // Mặc định 10 phút
@@ -562,7 +562,7 @@ class XiangqiTVApp {
     this.showLabels = this.boardView.toggleVietnameseLabels();
     const textLabels = document.getElementById('text-labels');
     if (textLabels) {
-      textLabels.textContent = `Chữ Quốc ngữ: ${this.showLabels ? 'Bật' : 'Tắt'}`;
+      textLabels.textContent = `Mặt cờ: ${this.showLabels ? 'Quốc ngữ' : 'Chữ Hán'}`;
     }
     this.render();
   }
