@@ -236,8 +236,12 @@ export class XiangqiAI {
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
         game.makeMoveInternal(move);
-        const score = this.quiescence(game, alpha, beta, false, qDepth - 1);
-        game.undoMoveInternal(move);
+        let score;
+        try {
+          score = this.quiescence(game, alpha, beta, false, qDepth - 1);
+        } finally {
+          game.undoMoveInternal(move);
+        }
 
         if (score >= beta) return beta;
         if (score > alpha) alpha = score;
@@ -254,8 +258,12 @@ export class XiangqiAI {
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
         game.makeMoveInternal(move);
-        const score = this.quiescence(game, alpha, beta, true, qDepth - 1);
-        game.undoMoveInternal(move);
+        let score;
+        try {
+          score = this.quiescence(game, alpha, beta, true, qDepth - 1);
+        } finally {
+          game.undoMoveInternal(move);
+        }
 
         if (score <= alpha) return alpha;
         if (score < beta) beta = score;
@@ -295,8 +303,12 @@ export class XiangqiAI {
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
         game.makeMoveInternal(move);
-        const score = this.alphaBeta(game, depth - 1, alpha, beta, false);
-        game.undoMoveInternal(move);
+        let score;
+        try {
+          score = this.alphaBeta(game, depth - 1, alpha, beta, false);
+        } finally {
+          game.undoMoveInternal(move);
+        }
 
         if (score > maxScore) maxScore = score;
         if (maxScore > alpha) alpha = maxScore;
@@ -308,8 +320,12 @@ export class XiangqiAI {
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
         game.makeMoveInternal(move);
-        const score = this.alphaBeta(game, depth - 1, alpha, beta, true);
-        game.undoMoveInternal(move);
+        let score;
+        try {
+          score = this.alphaBeta(game, depth - 1, alpha, beta, true);
+        } finally {
+          game.undoMoveInternal(move);
+        }
 
         if (score < minScore) minScore = score;
         if (minScore < beta) beta = minScore;
@@ -352,8 +368,12 @@ export class XiangqiAI {
         }
 
         game.makeMoveInternal(move);
-        const score = this.alphaBeta(game, depth - 1, alpha, beta, false);
-        game.undoMoveInternal(move);
+        let score;
+        try {
+          score = this.alphaBeta(game, depth - 1, alpha, beta, false);
+        } finally {
+          game.undoMoveInternal(move);
+        }
 
         if (score > maxScore) {
           maxScore = score;
@@ -374,8 +394,12 @@ export class XiangqiAI {
         }
 
         game.makeMoveInternal(move);
-        const score = this.alphaBeta(game, depth - 1, alpha, beta, true);
-        game.undoMoveInternal(move);
+        let score;
+        try {
+          score = this.alphaBeta(game, depth - 1, alpha, beta, true);
+        } finally {
+          game.undoMoveInternal(move);
+        }
 
         if (score < minScore) {
           minScore = score;
@@ -402,18 +426,18 @@ export class XiangqiAI {
     // 1. Check opening book first for instant GM opening move
     const bookMove = this.getOpeningMove(game);
     if (bookMove) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 60));
       return bookMove;
     }
 
     // 2. Configure time budget per move (in milliseconds)
     const timeBudgets = {
-      easy: 600,     // Max 0.6s
-      medium: 1600,  // Max 1.6s
-      hard: 2400,    // Max 2.4s
-      master: 3000   // Max 3.0s (never exceeds 3 seconds!)
+      easy: 300,     // Max 0.3s
+      medium: 600,   // Max 0.6s
+      hard: 1000,    // Max 1.0s
+      master: 1600   // Max 1.6s
     };
-    const maxTime = timeBudgets[this.difficulty] || 1800;
+    const maxTime = timeBudgets[this.difficulty] || 800;
     this.deadline = performance.now() + maxTime;
     this.nodeCount = 0;
 
@@ -428,7 +452,7 @@ export class XiangqiAI {
     // Easy level: intentional blunder chance for beginners
     if (this.difficulty === 'easy') {
       if (Math.random() < 0.25) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 60));
         return legalMoves[Math.floor(Math.random() * legalMoves.length)];
       }
     }
@@ -436,36 +460,47 @@ export class XiangqiAI {
     let bestMove = legalMoves[0];
     let bestScore = isMaximizing ? -Infinity : Infinity;
 
-    // 3. Iterative Deepening loop (depth 1 -> 2 -> 3 -> 4)
-    for (let depth = 1; depth <= maxDepth; depth++) {
-      if (this.cancelled || performance.now() >= this.deadline) break;
+    // Save FEN snapshot to guarantee 100% board integrity under all exceptions
+    const originalFen = game.toFen();
 
-      try {
-        // Yield execution to browser event loop so TV UI and remote stay responsive
-        await new Promise(r => setTimeout(r, 4));
-        if (this.cancelled) return null;
+    try {
+      // 3. Iterative Deepening loop (depth 1 -> 2 -> 3 -> 4)
+      for (let depth = 1; depth <= maxDepth; depth++) {
+        if (this.cancelled || performance.now() >= this.deadline) break;
 
-        const result = this.rootSearch(game, depth, isMaximizing, bestMove);
-        if (this.cancelled) return null;
-        if (result && result.move) {
-          bestMove = result.move;
-          bestScore = result.score;
-        }
+        try {
+          // Yield execution to browser event loop so TV UI and remote stay responsive
+          await new Promise(r => setTimeout(r, 4));
+          if (this.cancelled) return null;
 
-        // Checkmate detected -> no need to search deeper
-        if (Math.abs(bestScore) > 20000) break;
-      } catch (err) {
-        if (err instanceof SearchCancelledException) {
-          return null;
+          const result = this.rootSearch(game, depth, isMaximizing, bestMove);
+          if (this.cancelled) return null;
+          if (result && result.move) {
+            bestMove = result.move;
+            bestScore = result.score;
+          }
+
+          // Checkmate detected -> no need to search deeper
+          if (Math.abs(bestScore) > 20000) break;
+        } catch (err) {
+          if (err instanceof SearchCancelledException) {
+            return null;
+          }
+          if (err instanceof SearchTimeoutException) {
+            // Time is up! Use bestMove from the last fully completed depth
+            break;
+          }
+          throw err;
         }
-        if (err instanceof SearchTimeoutException) {
-          // Time is up! Use bestMove from the last fully completed depth
-          break;
-        }
-        throw err;
+      }
+
+      return bestMove;
+    } finally {
+      // Always restore original board state if any deep recursion left un-undone moves
+      if (game.toFen() !== originalFen) {
+        console.warn('AI search finished with altered board state; restoring original FEN.');
+        game.loadFromFen(originalFen);
       }
     }
-
-    return bestMove;
   }
 }

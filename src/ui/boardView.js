@@ -67,14 +67,14 @@ export class BoardView {
     this.isCheck = false;
     this.checkedKing = null;
 
-    // SVG Coordinate Space (780 x 780 - Perfect True Square 1:1)
-    this.boardWidth = 780;
-    this.boardHeight = 780;
-    this.paddingX = 66;
-    this.paddingY = 66;
-    this.cellWidth = (this.boardWidth - 2 * this.paddingX) / 8;   // 648 / 8 = 81px
-    this.cellHeight = (this.boardHeight - 2 * this.paddingY) / 9; // 648 / 9 = 72px
-    this.pieceRadius = 34; // 68px diameter in 72x81 cell: bold, magnificent, perfectly legible from 3m
+    // SVG Coordinate Space (800 x 890 - Authentic Traditional Xiangqi Proportion)
+    this.boardWidth = 800;
+    this.boardHeight = 890;
+    this.paddingX = 32;
+    this.paddingY = 35;
+    this.cellWidth = (this.boardWidth - 2 * this.paddingX) / 8;   // 736 / 8 = 92.0px
+    this.cellHeight = (this.boardHeight - 2 * this.paddingY) / 9; // 820 / 9 = 91.11px
+    this.pieceRadius = 41.5; // 83px diameter: grand, bold, stately with 53px calligraphy font
 
     this.initDOM();
   }
@@ -166,7 +166,7 @@ export class BoardView {
         <div class="vertical-captured-dock black-dock glass-panel" id="dock-pieces-black" title="Khay quân Đen bị bắt"></div>
 
         <!-- Main Board Canvas Container -->
-        <div class="board-canvas-container" id="board-canvas-container" style="width: 89vh; height: 89vh; min-width: 480px; min-height: 480px; max-width: 930px; max-height: 930px; flex-shrink: 0;">
+        <div class="board-canvas-container" id="board-canvas-container" style="height: 95vh; width: calc(95vh * 800 / 890); min-width: 450px; min-height: 500px; max-width: 920px; max-height: 1020px; aspect-ratio: 800 / 890; flex-shrink: 0;">
             <svg class="board-svg" id="main-board-svg" viewBox="0 0 ${this.boardWidth} ${this.boardHeight}" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <!-- Wood Grain Textures & Filters -->
@@ -287,14 +287,14 @@ export class BoardView {
 
               <!-- River Calligraphy (Sở Hà - Hán Giới) -->
               <g class="river-text" fill="url(#goldFoilGrad)" font-family="'Noto Serif SC', 'Songti SC', 'SimSun', serif" font-weight="900" font-size="28" letter-spacing="14">
-                <text x="${this.paddingX + 1.7 * this.cellWidth}" y="${this.paddingY + 4.58 * this.cellHeight}" text-anchor="middle">楚 河</text>
-                <text x="${this.paddingX + 6.3 * this.cellWidth}" y="${this.paddingY + 4.58 * this.cellHeight}" text-anchor="middle">漢 界</text>
+                <text x="${this.paddingX + 1.7 * this.cellWidth}" y="${this.paddingY + 4.5 * this.cellHeight - 3}" text-anchor="middle">楚 河</text>
+                <text x="${this.paddingX + 6.3 * this.cellWidth}" y="${this.paddingY + 4.5 * this.cellHeight - 3}" text-anchor="middle">漢 界</text>
               </g>
 
               <!-- River Vietnamese Subtitles -->
               <g class="river-sub" fill="#ca8a04" fill-opacity="0.55" font-family="'Be Vietnam Pro', sans-serif" font-size="11" font-weight="800" letter-spacing="3">
-                <text x="${this.paddingX + 1.7 * this.cellWidth}" y="${this.paddingY + 4.88 * this.cellHeight}" text-anchor="middle">SỞ HÀ</text>
-                <text x="${this.paddingX + 6.3 * this.cellWidth}" y="${this.paddingY + 4.88 * this.cellHeight}" text-anchor="middle">HÁN GIỚI</text>
+                <text x="${this.paddingX + 1.7 * this.cellWidth}" y="${this.paddingY + 4.5 * this.cellHeight + 17}" text-anchor="middle">SỞ HÀ</text>
+                <text x="${this.paddingX + 6.3 * this.cellWidth}" y="${this.paddingY + 4.5 * this.cellHeight + 17}" text-anchor="middle">HÁN GIỚI</text>
               </g>
 
               <!-- Traditional Cross Markings -->
@@ -317,11 +317,11 @@ export class BoardView {
 
               <!-- TV Remote Reticle (Cursor) - Pre-rendered for 0ms transform latency -->
               <g id="svg-tv-cursor" class="svg-reticle-group" transform="translate(-100, -100)">
-                <path d="M -35 -24 L -35 -35 L -24 -35" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
-                <path d="M 24 -35 L 35 -35 L 35 -24" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
-                <path d="M -35 24 L -35 35 L -24 35" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
-                <path d="M 24 35 L 35 35 L 35 24" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
-                <circle cx="0" cy="0" r="3" fill="#fbbf24" opacity="0.9" />
+                <path d="M -44 -30 L -44 -44 L -30 -44" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
+                <path d="M 30 -44 L 44 -44 L 44 -30" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
+                <path d="M -44 30 L -44 44 L -30 44" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
+                <path d="M 30 44 L 44 44 L 44 30" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" />
+                <circle cx="0" cy="0" r="4" fill="#fbbf24" opacity="0.9" />
               </g>
 
               <!-- Grand Check Splash Calligraphy -->
@@ -357,11 +357,13 @@ export class BoardView {
   adjustBoardDimensions() {
     if (!this.canvasContainer) return;
     const stage = document.getElementById('main-stage');
-    const availH = stage ? stage.clientHeight * 0.96 : window.innerHeight * 0.90;
-    const availW = stage ? (stage.clientWidth - 310) * 0.98 : window.innerWidth * 0.62;
-    const size = Math.round(Math.max(540, Math.min(880, Math.min(availH, availW))));
-    this.canvasContainer.style.width = size + 'px';
-    this.canvasContainer.style.height = size + 'px';
+    const ratio = this.boardWidth / this.boardHeight;
+    const availH = stage ? stage.clientHeight * 0.98 : window.innerHeight * 0.95;
+    const availW = stage ? (stage.clientWidth - 350) * 0.98 : window.innerWidth * 0.68;
+    const targetH = Math.round(Math.max(540, Math.min(1020, Math.min(availH, availW / ratio))));
+    const targetW = Math.round(targetH * ratio);
+    this.canvasContainer.style.width = targetW + 'px';
+    this.canvasContainer.style.height = targetH + 'px';
   }
 
   triggerScreenShake(intensity = 'medium') {
@@ -524,8 +526,8 @@ export class BoardView {
     this.selectedSquare = options.selectedSquare || null;
     this.legalMoves = options.legalMoves || [];
     this.lastMove = options.lastMove || game.getLastMove();
-    this.isCheck = game.isCheck(game.turn);
-    this.checkedKing = this.isCheck ? game.findKing(game.turn) : null;
+    this.isCheck = !game.isGameOver && game.isCheck(game.turn);
+    this.checkedKing = (!game.isGameOver && this.isCheck) ? game.findKing(game.turn) : null;
 
     if (options.evalScore !== undefined) {
       this.updateEvalBar(options.evalScore);
@@ -654,24 +656,28 @@ export class BoardView {
 
         let faceContent = '';
         if (!this.showVietnameseLabels) {
-          // CHỮ HÁN TRUYỀN THỐNG TO RÕ 46px NÉT ĐẬM CHUẨN BÀN CỜ GỖ
+          // CHỮ HÁN HOÀNG GIA 53px ĐẬM NÉT, UY NGHI TRONG LÒNG QUÂN CỜ LỚN
           faceContent = `
             <text x="0" y="1"
                   text-anchor="middle"
                   dominant-baseline="central"
                   alignment-baseline="central"
-                  font-family="'Noto Serif SC', 'KaiTi', 'STKaiti', 'Songti SC', 'SimSun', 'Microsoft YaHei', serif"
-                  font-size="46"
+                  font-family="'Noto Serif SC', 'KaiTi', 'STKaiti', 'Songti SC', 'SimSun', 'Microsoft YaHei', 'PingFang SC', serif"
+                  font-size="53"
                   font-weight="900"
                   fill="${charColor}"
+                  stroke="${charColor}"
+                  stroke-width="1.2"
+                  stroke-linejoin="round"
+                  paint-order="stroke fill"
                   style="text-shadow: 1px 1px 2px rgba(0,0,0,0.65);">
               ${info.hanzi}
             </text>
           `;
         } else {
-          // CHỮ QUỐC NGỮ DUY NHẤT TO RÕ NÉT ĐẬM (KHÔNG CHÈN CHỮ HÁN)
+          // CHỮ QUỐC NGỮ TO RÕ, ĐẬM NÉT
           const vnText = info.name.toUpperCase();
-          const vnFontSize = vnText.length <= 2 ? 28 : (vnText.length <= 4 ? 22 : 19);
+          const vnFontSize = vnText.length <= 2 ? 34 : (vnText.length <= 4 ? 27 : 22);
           faceContent = `
             <text x="0" y="1"
                   text-anchor="middle"
@@ -681,6 +687,10 @@ export class BoardView {
                   font-size="${vnFontSize}"
                   font-weight="900"
                   fill="${labelColor}"
+                  stroke="${labelColor}"
+                  stroke-width="0.8"
+                  stroke-linejoin="round"
+                  paint-order="stroke fill"
                   letter-spacing="0.5"
                   style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
               ${vnText}
@@ -691,7 +701,7 @@ export class BoardView {
         svg += `
           <g class="svg-piece-group ${isRed ? 'red' : 'black'} ${isSelected ? 'selected' : ''}"
              transform="translate(${x}, ${py})"
-             style="cursor: pointer; transition: transform 0.2s ease-out;">
+             style="cursor: pointer; transition: transform 0.15s ease-out;">
 
             <!-- 0. Zero-Overhead Hardware-Accelerated Vector Shadow -->
             <circle cx="0" cy="${shadowCy}" r="${this.pieceRadius}" fill="#000000" opacity="${shadowOpacity}" />
@@ -700,10 +710,10 @@ export class BoardView {
             <circle cx="0" cy="0" r="${this.pieceRadius}" fill="${woodGrad}" stroke="${rimColor}" stroke-width="2.2" />
 
             <!-- 2. Lathe-turned Chamfer Highlight Ring (Viền vát 3D bóng) -->
-            <circle cx="0" cy="0" r="${this.pieceRadius - 3.5}" fill="none" stroke="${isRed ? '#fef08a' : '#52525b'}" stroke-width="0.8" opacity="0.6" />
+            <circle cx="0" cy="0" r="${this.pieceRadius - 2.5}" fill="none" stroke="${isRed ? '#fef08a' : '#52525b'}" stroke-width="0.8" opacity="0.6" />
 
-            <!-- 3. Recessed Circular Well (Lòng cờ khoét chìm tinh xảo) -->
-            <circle cx="0" cy="0" r="${this.pieceRadius - 6}" fill="${isRed ? 'rgba(254, 243, 199, 0.3)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
+            <!-- 3. Recessed Circular Well (Lòng cờ khoét chìm tinh xảo rộng rãi) -->
+            <circle cx="0" cy="0" r="${this.pieceRadius - 3.5}" fill="${isRed ? 'rgba(254, 243, 199, 0.3)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
 
             <!-- 4. Face Typography (Mặt cờ to rõ, tương phản cao, siêu nét từ 3 mét) -->
             ${faceContent}
@@ -737,17 +747,21 @@ export class BoardView {
               text-anchor="middle"
               dominant-baseline="central"
               alignment-baseline="central"
-              font-family="'Noto Serif SC', 'KaiTi', 'STKaiti', 'Songti SC', 'SimSun', 'Microsoft YaHei', serif"
-              font-size="46"
+              font-family="'Noto Serif SC', 'KaiTi', 'STKaiti', 'Songti SC', 'SimSun', 'Microsoft YaHei', 'PingFang SC', serif"
+              font-size="53"
               font-weight="900"
               fill="${charColor}"
+              stroke="${charColor}"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              paint-order="stroke fill"
               style="text-shadow: 1px 1px 2px rgba(0,0,0,0.65);">
           ${info.hanzi}
         </text>
       `;
     } else {
       const vnText = info.name.toUpperCase();
-      const vnFontSize = vnText.length <= 2 ? 28 : (vnText.length <= 4 ? 22 : 19);
+      const vnFontSize = vnText.length <= 2 ? 34 : (vnText.length <= 4 ? 27 : 22);
       faceContent = `
         <text x="0" y="1"
               text-anchor="middle"
@@ -757,6 +771,10 @@ export class BoardView {
               font-size="${vnFontSize}"
               font-weight="900"
               fill="${labelColor}"
+              stroke="${labelColor}"
+              stroke-width="0.8"
+              stroke-linejoin="round"
+              paint-order="stroke fill"
               letter-spacing="0.5"
               style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
           ${vnText}
@@ -771,8 +789,8 @@ export class BoardView {
         <!-- Vector shadow -->
         <circle cx="0" cy="${isLifted ? 6 : 2.5}" r="${this.pieceRadius}" fill="#000000" opacity="${isLifted ? 0.45 : 0.28}" />
         <circle cx="0" cy="0" r="${this.pieceRadius}" fill="${woodGrad}" stroke="${rimColor}" stroke-width="2.2" />
-        <circle cx="0" cy="0" r="${this.pieceRadius - 3.5}" fill="none" stroke="${isRed ? '#fef08a' : '#52525b'}" stroke-width="0.8" opacity="0.6" />
-        <circle cx="0" cy="0" r="${this.pieceRadius - 6}" fill="${isRed ? 'rgba(254, 243, 199, 0.3)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
+        <circle cx="0" cy="0" r="${this.pieceRadius - 2.5}" fill="none" stroke="${isRed ? '#fef08a' : '#52525b'}" stroke-width="0.8" opacity="0.6" />
+        <circle cx="0" cy="0" r="${this.pieceRadius - 3.5}" fill="${isRed ? 'rgba(254, 243, 199, 0.3)' : 'rgba(0, 0, 0, 0.4)'}" stroke="${innerBorder}" stroke-width="1.6" opacity="0.85" />
         ${faceContent}
       </g>
     `;
@@ -786,8 +804,8 @@ export class BoardView {
    */
   renderArmAndHandSVG({ x, y, side, isElevated = true }) {
     const isRed = (side === SIDES.RED);
-    const baseX = Math.min(650, Math.max(130, x));
-    const baseY = isRed ? 870 : -90;
+    const baseX = Math.min(this.boardWidth - 130, Math.max(130, x));
+    const baseY = isRed ? (this.boardHeight + 80) : -80;
 
     const dx = baseX - x;
     const dy = baseY - y;
@@ -1617,7 +1635,7 @@ export class BoardView {
     }
 
     const startTime = performance.now();
-    const duration = isAI ? 250 : 180; // Snappy 180ms - 250ms
+    const duration = isAI ? 190 : 150; // Ultra-snappy 150ms - 190ms (zero lag)
 
     // Pre-render flying piece ONCE into flyingPieceLayer
     if (this.flyingPieceLayer) {

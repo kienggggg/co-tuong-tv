@@ -233,6 +233,12 @@ export class TVInputController {
   }
 
   confirmAction() {
+    const now = performance.now();
+    if (this._lastConfirmTime && (now - this._lastConfirmTime < 180)) {
+      return; // Ignore duplicate bounce from TV remote
+    }
+    this._lastConfirmTime = now;
+
     if (this.area === 'board') {
       this.onSelectCell(this.cursor.r, this.cursor.c);
     } else if (this.area === 'sidebar') {

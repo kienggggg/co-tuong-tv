@@ -331,10 +331,22 @@ export class TVMenuController {
     }
 
     if (checkAlert) {
-      const inCheck = game.isCheck(game.turn);
-      checkAlert.style.display = inCheck ? 'block' : 'none';
-      if (inCheck) {
-        checkAlert.textContent = `⚠️ CHIẾU TƯỚNG! (${isRedTurn ? 'Đỏ' : 'Đen'} bị chiếu)`;
+      if (game.isGameOver) {
+        checkAlert.style.display = 'block';
+        const winnerName = (game.winner === 'r') ? 'BÊN ĐỎ' : 'BÊN ĐEN';
+        checkAlert.textContent = `🏆 ${winnerName} CHIẾN THẮNG!`;
+        checkAlert.style.background = 'rgba(234, 179, 8, 0.25)';
+        checkAlert.style.borderColor = '#fbbf24';
+        checkAlert.style.color = '#fef08a';
+      } else {
+        const inCheck = game.isCheck(game.turn);
+        checkAlert.style.display = inCheck ? 'block' : 'none';
+        if (inCheck) {
+          checkAlert.textContent = `⚠️ CHIẾU TƯỚNG! (${isRedTurn ? 'Đỏ' : 'Đen'} bị chiếu)`;
+          checkAlert.style.background = 'rgba(239, 68, 68, 0.15)';
+          checkAlert.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          checkAlert.style.color = '#ef4444';
+        }
       }
     }
 
@@ -463,6 +475,10 @@ export class TVMenuController {
 
     this.modalContainer.style.display = 'flex';
     this.app.inputController.setArea('modal');
+    this.app.inputController.modalIndex = 0;
+    setTimeout(() => {
+      this.app.inputController.focusModalButton(0);
+    }, 50);
 
     const btnRestart = document.getElementById('modal-btn-restart');
     const btnClose = document.getElementById('modal-btn-close');

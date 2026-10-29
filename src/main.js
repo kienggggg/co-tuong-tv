@@ -37,6 +37,7 @@ class XiangqiTVApp {
     this.selectedSquare = null;
     this.legalMoves = [];
     this.isAiThinking = false;
+    this.isMoveExecuting = false;
     this.hintMove = null;
 
     if (window.tvLog) window.tvLog('4. Before calling this.init()');
@@ -162,13 +163,19 @@ class XiangqiTVApp {
   }
 
   isHumanTurn() {
-    if (this.isAiThinking || this.game.isGameOver || this.boardView.isAnimating) return false;
+    if (this.isAiThinking || this.game.isGameOver || this.boardView.isAnimating || this.isMoveExecuting) return false;
     if (this.gameMode === '2-player') return true;
     return this.game.turn === this.playerSide;
   }
 
+  updateSelectionView() {
+    this.boardView.selectedSquare = this.selectedSquare;
+    this.boardView.legalMoves = this.legalMoves;
+    this.boardView.renderHighlights();
+  }
+
   handleCellHover(r, c) {
-    if (this.boardView.isAnimating) return;
+    if (this.boardView.isAnimating || this.isMoveExecuting) return;
     if (this.inputController.area !== 'modal' && this.inputController.area !== 'home') {
       this.inputController.setCursor(r, c);
       this.menuController.updateSidebarFocus(-1);
@@ -176,7 +183,7 @@ class XiangqiTVApp {
   }
 
   handleCellClick(r, c) {
-    if (this.boardView.isAnimating) return;
+    if (this.boardView.isAnimating || this.isMoveExecuting) return;
     if (this.inputController.area !== 'modal' && this.inputController.area !== 'home') {
       this.inputController.setCursor(r, c);
       this.menuController.updateSidebarFocus(-1);
@@ -193,7 +200,7 @@ class XiangqiTVApp {
         this.legalMoves = this.game.getLegalMovesForPiece(r, c);
         this.hintMove = null;
         sound.playSelect();
-        this.render();
+        this.updateSelectionView(); // Sub-millisecond highlight update, 0 lag!
       }
       return;
     }
@@ -203,9 +210,6 @@ class XiangqiTVApp {
 
     if (isTarget) {
       this.executeMove(isTarget);
-      this.selectedSquare = null;
-      this.legalMoves = [];
-      this.hintMove = null;
       return;
     }
 
@@ -215,7 +219,7 @@ class XiangqiTVApp {
       this.legalMoves = this.game.getLegalMovesForPiece(r, c);
       this.hintMove = null;
       sound.playSelect();
-      this.render();
+      this.updateSelectionView();
       return;
     }
 
@@ -223,14 +227,22 @@ class XiangqiTVApp {
     this.selectedSquare = null;
     this.legalMoves = [];
     sound.playSelect();
-    this.render();
+    this.updateSelectionView();
   }
 
   executeMove(move) {
+    if (this.isMoveExecuting) return;
+    this.isMoveExecuting = true;
+
+    this.selectedSquare = null;
+    this.legalMoves = [];
+    this.hintMove = null;
+    this.updateSelectionView();
+
     const isCapture = Boolean(move.captured);
     const movingPiece = this.game.getPiece(move.from.r, move.from.c);
 
-    // Animate arm and piece flight
+    // Animate piece flight (fast 160ms)
     this.boardView.animateMove({
       from: move.from,
       to: move.to,
@@ -239,30 +251,34 @@ class XiangqiTVApp {
       isCapture,
       capturedPiece: move.captured,
       onComplete: () => {
-        const success = this.game.makeMove(move);
-        if (!success) return;
+        try {
+          const success = this.game.makeMove(move);
+          if (!success) return;
 
-        if (isCapture) {
-          sound.playPieceCapture(movingPiece);
-        } else {
-          sound.playMove();
-        }
+          if (isCapture) {
+            sound.playPieceCapture(movingPiece);
+          } else {
+            sound.playMove();
+          }
 
-        // Check alert sound & voice callout
-        if (this.game.isCheck(this.game.turn)) {
-          setTimeout(() => sound.playCheck(), 140);
-        }
+          // Check alert sound & voice callout (only if game is still active)
+          if (!this.game.isGameOver && this.game.isCheck(this.game.turn)) {
+            setTimeout(() => sound.playCheck(), 140);
+          }
 
-        this.render();
+          this.render();
 
-        if (this.game.isGameOver) {
-          this.stopClock();
-          this.handleGameOver();
-          return;
-        }
+          if (this.game.isGameOver) {
+            this.stopClock();
+            this.handleGameOver();
+            return;
+          }
 
-        if (this.gameMode === 'vs-ai' && this.game.turn !== this.playerSide) {
-          this.triggerAiTurn();
+          if (this.gameMode === 'vs-ai' && this.game.turn !== this.playerSide) {
+            this.triggerAiTurn();
+          }
+        } finally {
+          this.isMoveExecuting = false;
         }
       }
     });
@@ -270,30 +286,44 @@ class XiangqiTVApp {
 
   /**
    * AI PACING ORCHESTRATOR
-   * Bot dừng lại suy nghĩ, highlight ô chọn 200-300ms, dùng tay áo nhấc và lướt cờ 680ms
-   * Tổng thời gian quan sát: 1.5s - 2.0s, người chơi không bị ngợp!
+   * Bot phản hồi nhanh gọn, mượt mà và an toàn tuyệt đối
    */
   async triggerAiTurn() {
+    if (this.gameMode === 'vs-ai' && this.game.turn === this.playerSide) {
+      console.warn('triggerAiTurn: Skipped because it is currently human turn');
+      return;
+    }
+
     this.isAiThinking = true;
     this.ai.cancelled = false;
     this.menuController.updateStatus(this.game, true);
 
     try {
-      // 1. AI tính toán nước cờ (đáp ứng nhanh trong vòng 0.6s - 1.8s)
+      // 1. AI tính toán nước cờ (đáp ứng cực nhanh 0.3s - 0.7s)
       const bestMove = await this.ai.getBestMove(this.game);
       if (this.ai.cancelled) return;
 
       if (bestMove && !this.game.isGameOver) {
-        // 2. Highlight quân cờ Bot chuẩn bị đi trong 120ms
+        // Strict guard: ensure turn did not shift and AI does not move human piece
+        if (this.game.turn === this.playerSide) {
+          console.warn('triggerAiTurn: Turn is human player; aborting AI move execution');
+          return;
+        }
+        const movingPiece = this.game.getPiece(bestMove.from.r, bestMove.from.c);
+        if (this.game.getPieceSide(movingPiece) === this.playerSide) {
+          console.warn('triggerAiTurn: AI attempted to move human piece; aborting');
+          return;
+        }
+
+        // 2. Highlight ngắn 60ms cho mắt người chơi kịp theo dõi
         this.boardView.selectedSquare = { r: bestMove.from.r, c: bestMove.from.c };
         this.boardView.renderHighlights();
-        await new Promise(r => setTimeout(r, 120));
+        await new Promise(r => setTimeout(r, 60));
         if (this.ai.cancelled) return;
 
-        const movingPiece = this.game.getPiece(bestMove.from.r, bestMove.from.c);
         const isCapture = Boolean(bestMove.captured);
 
-        // 3. Bot nhấc quân cờ và di chuyển
+        // 3. Bot di chuyển quân (160ms mượt mà)
         await new Promise(resolve => {
           this.boardView.animateMove({
             from: bestMove.from,
@@ -316,7 +346,7 @@ class XiangqiTVApp {
                 sound.playMove();
               }
 
-              if (this.game.isCheck(this.game.turn)) {
+              if (!this.game.isGameOver && this.game.isCheck(this.game.turn)) {
                 setTimeout(() => sound.playCheck(), 140);
               }
 
